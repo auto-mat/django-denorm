@@ -590,7 +590,7 @@ def build_triggerset(using=None):
     return triggerset
 
 
-def flush(verbose=False):
+def flush(verbose=False, batch_size=10):
     """
     Updates all model instances marked as dirty by the DirtyInstance
     model.
@@ -605,6 +605,7 @@ def flush(verbose=False):
         # Get all dirty markers
         from .models import DirtyInstance
         qs = DirtyInstance.objects.all()
+        tot_count = qs.count()
 
         try:  # If possible, dont flush the same object twice
             qs_unified = qs.distinct('content_type', 'object_id')
@@ -617,15 +618,17 @@ def flush(verbose=False):
         if not qs:
             break
 
+        qs = qs[:batch_size]
+
         # Call save() on all dirty instances, causing the self_save_handler()
         # getting called by the pre_save signal.
         if verbose:
-            size = qs.count()
+            size = len(qs)
             i = 0
-        for dirty_instance in qs.iterator():
+        for dirty_instance in qs:
             if verbose:
                 i += 1
-                print("flushing %s of %s all dirty instances" % (i, size))
+                print("flushing %s of %s dirty instances in batch. There are %s total dirty instances." % (i, size, tot_count))
             if dirty_instance.content_object:
                 dirty_instance.content_object.save()
 
